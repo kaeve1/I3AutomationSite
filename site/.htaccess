@@ -1,0 +1,123 @@
+# ====================================================================
+# i3 Automations & Controls -- Apache (HostGator / cPanel)
+# Gerado por ferramentas/build_paginas.py. Nao editar a mao.
+# ====================================================================
+
+Options -Indexes
+DirectoryIndex index.html
+
+# Os arquivos da OUTRA hospedagem ficam na pasta, mas nao no ar.
+# `_headers` e `_redirects` sao inertes em Apache -- so que inerte
+# nao quer dizer invisivel: sem esta regra o servidor os entrega como
+# texto para quem pedir. Ficam no disco para o dia de uma mudanca
+# para Cloudflare Pages, e fora do alcance ate la.
+<FilesMatch "^(_headers|_redirects)$">
+  Require all denied
+</FilesMatch>
+
+# A pagina de erro do PROJETO, nao a do Apache: ela leva noindex e o
+# bloco de contato inteiro, para o visitante ter para onde ir.
+ErrorDocument 404 /404.html
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # --- canonica: https, e sem www ---
+  # O site atual ja resolve as duas por 301. Estao aqui porque a regra
+  # vivia no .htaccess do WordPress, que este arquivo substitui.
+  RewriteCond %{HTTPS} !=on
+  RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]
+  RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
+  RewriteRule ^(.*)$ https://%1/$1 [R=301,L]
+
+  # --- index.html nao e uma segunda home ---
+  # As duas formas servem a mesma pagina, que e a definicao de
+  # conteudo duplicado. A canonica do HTML ja aponta para a barra;
+  # isto faz o servidor concordar com ela.
+  RewriteRule ^index\.html$ / [R=301,L]
+
+  # --- as URLs do WordPress ---
+  RewriteRule ^who-we-are/?$ /who-we-are.html [R=301,L]
+  RewriteRule ^capabilities/?$ /capabilities.html [R=301,L]
+  RewriteRule ^past-performance/?$ /past-performance.html [R=301,L]
+  RewriteRule ^services/?$ /services.html [R=301,L]
+  RewriteRule ^gallery/?$ /gallery.html [R=301,L]
+  RewriteRule ^contact-us/?$ /contact.html [R=301,L]
+  RewriteRule ^privacy-policy/?$ /privacy-policy.html [R=301,L]
+  RewriteRule ^terms-and-conditions/?$ /terms-and-conditions.html [R=301,L]
+  RewriteRule ^home/?$ / [R=301,L]
+
+  # --- o que nao existe mais ---
+  # [G] devolve 410 Gone. 410 e nao 301 porque isto ACABOU, nao mudou
+  # de lugar: 301 mandaria o buscador atras de um destino, e um feed
+  # RSS redirecionado para pagina HTML confunde o leitor de feed.
+  RewriteRule ^feed - [G,L]
+  RewriteRule ^comments/feed - [G,L]
+  RewriteRule ^wp-json - [G,L]
+  RewriteRule ^xmlrpc\.php - [G,L]
+  RewriteRule ^wp-login\.php - [G,L]
+  RewriteRule ^wp-admin - [G,L]
+</IfModule>
+
+# --- compressao ---
+# Sem isto o CSS sai a 70,4 KB em vez de 12,7 KB. Imagem e fonte ficam
+# de FORA de proposito: AVIF, WebP e WOFF2 ja sao comprimidos, e passa-
+# los pelo gzip gasta CPU para CRESCER alguns bytes.
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css text/plain
+  AddOutputFilterByType DEFLATE text/javascript application/javascript
+  AddOutputFilterByType DEFLATE application/json application/manifest+json
+  AddOutputFilterByType DEFLATE application/xml image/svg+xml
+</IfModule>
+
+# --- tipos que o Apache pode nao conhecer ---
+<IfModule mod_mime.c>
+  AddType image/avif .avif
+  AddType image/webp .webp
+  AddType application/manifest+json .webmanifest
+  AddType font/woff2 .woff2
+</IfModule>
+
+# --- cache ---
+<IfModule mod_expires.c>
+  ExpiresActive On
+  # imagens
+  ExpiresByType image/jpeg       "access plus 31536000 seconds"
+  ExpiresByType image/png        "access plus 31536000 seconds"
+  ExpiresByType image/webp       "access plus 31536000 seconds"
+  ExpiresByType image/avif       "access plus 31536000 seconds"
+  # fontes
+  ExpiresByType font/woff2       "access plus 31536000 seconds"
+  # marca
+  ExpiresByType image/svg+xml    "access plus 604800 seconds"
+  # folhas
+  ExpiresByType text/css         "access plus 3600 seconds"
+  # scripts
+  ExpiresByType text/javascript  "access plus 3600 seconds"
+  # favicon
+  ExpiresByType image/x-icon     "access plus 604800 seconds"
+</IfModule>
+
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  # o valor completo, identico ao que o _headers manda
+  <FilesMatch "\.(jpe?g|png|webp|avif)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+  <FilesMatch "\.(woff2)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+  <FilesMatch "\.(svg)$">
+    Header set Cache-Control "public, max-age=604800"
+  </FilesMatch>
+  <FilesMatch "\.(css)$">
+    Header set Cache-Control "public, max-age=3600"
+  </FilesMatch>
+  <FilesMatch "\.(js)$">
+    Header set Cache-Control "public, max-age=3600"
+  </FilesMatch>
+  <FilesMatch "^(favicon\.ico|site\.webmanifest)$">
+    Header set Cache-Control "public, max-age=604800"
+  </FilesMatch>
+</IfModule>

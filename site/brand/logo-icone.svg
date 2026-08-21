@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 410 258" role="img" aria-label="i3Automations">
+  <title>i3Automations</title>
+  <!-- Ícone achatado (design.md §8): as facetas de gradiente da tela do arquivo
+       original foram removidas — elas somem abaixo de ~64px de qualquer jeito e
+       só custavam peso. Geometria traçada em pixel do logo real (1024×387):
+       moldura x 66–434 / y 70–296, tela dourada x 86–413, base x 45–455. -->
+  <g fill="#003566">
+    <path d="M21 0h368v226H21z"/>
+    <rect x="0" y="232" width="410" height="26" rx="0"/>
+  </g>
+  <path fill="#FDC500" d="M41 20h328v186H41z"/>
+  <g fill="#003566">
+    <!-- i -->
+    <rect x="158" y="81" width="16" height="19"/>
+    <rect x="158" y="118" width="16" height="65"/>
+    <!-- 3 -->
+    <path d="M191 112c4-14 17-24 33-24 18 0 32 12 32 28 0 10-5 18-13 22 9 4 15 13 15 24 0 18-15 31-35 31-17 0-30-9-34-24l17-6c3 9 9 14 18 14 10 0 17-6 17-15 0-9-7-15-18-15h-9v-17h8c10 0 16-5 16-13 0-8-6-13-15-13-8 0-13 4-16 12z"/>
+  </g>
+</svg>

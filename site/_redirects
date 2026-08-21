@@ -1,0 +1,28 @@
+# Cloudflare Pages / Netlify. Em Apache quem vale e o .htaccess.
+# origem  destino  codigo
+
+/who-we-are/             /who-we-are.html           301
+/who-we-are              /who-we-are.html           301
+/capabilities/           /capabilities.html         301
+/capabilities            /capabilities.html         301
+/past-performance/       /past-performance.html     301
+/past-performance        /past-performance.html     301
+/services/               /services.html             301
+/services                /services.html             301
+/gallery/                /gallery.html              301
+/gallery                 /gallery.html              301
+/contact-us/             /contact.html              301
+/contact-us              /contact.html              301
+/privacy-policy/         /privacy-policy.html       301
+/privacy-policy          /privacy-policy.html       301
+/terms-and-conditions/   /terms-and-conditions.html 301
+/terms-and-conditions    /terms-and-conditions.html 301
+/home/                   /                          301
+/home                    /                          301
+
+/feed/*                  /404.html                  410
+/comments/feed/*         /404.html                  410
+/wp-json/*               /404.html                  410
+/xmlrpc.php*             /404.html                  410
+/wp-login.php*           /404.html                  410
+/wp-admin/*              /404.html                  410
