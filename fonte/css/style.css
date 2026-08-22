@@ -3541,15 +3541,86 @@ main {
    imagem perto da janela. As quatro folhas passaram a ser `fetchpriority=high`
    sem lazy — ver a nota em `imagem()` do build_paginas.py. Corrigir só uma das
    duas causas deixaria o defeito de pé em metade dos casos. */
-.prancha__item {
-  --janela: .16;
-  --passo: .055;
-  --avanco: clamp(0, calc((var(--p, 1) - .06 - var(--i, 0) * var(--passo)) /
-                          var(--janela)), 1);
-  opacity: var(--avanco);
-  /* `translate3d` e não `translate`: a folha ganha camada própria e o
-     navegador deixa de repintar a fileira inteira a cada quadro. */
-  transform: translate3d(0, calc((1 - var(--avanco)) * 40px), 0);
+/* A SEQUÊNCIA LIGADA À ROLAGEM SÓ VALE ONDE A FILEIRA É UMA FILEIRA, e isso
+   é conserto de um defeito relatado no celular em 21/08: as fotografias
+   demoravam a aparecer e só acendiam quando o visitante já estava olhando a
+   segunda.
+
+   A CAUSA NÃO ERA REDE. Medido: as quatro imagens já estavam BAIXADAS antes de
+   qualquer rolagem — `fetchpriority="high"` faz o trabalho dele. O que chegava
+   tarde era a opacidade.
+
+   O MOTOR TROCA DE LEITURA SOZINHO, e ninguém tinha notado. `main.js §7` mede
+   de dois jeitos, escolhidos pela altura do próprio elemento: peça mais BAIXA
+   que a janela usa a travessia inteira; peça mais ALTA usa `altura − janela`,
+   que só começa a contar quando o topo dela encosta no topo da tela. Medido na
+   home:
+
+     largura   colunas   altura da peça   janela   leitura
+      1440        4           447 px       900     baixa   <- os tempos são daqui
+      1024        4           377 px       900     baixa
+       900        2         1.063 px       900     ALTA
+       700        2           887 px       849     ALTA
+       620        2           825 px       850     baixa (por 25 px de margem!)
+       560        1         2.555 px       851     ALTA
+       390        1         1.893 px       853     ALTA
+
+   Ou seja: os tempos `.06 / .055 / .16` foram afinados para a leitura BAIXA e
+   passaram a ser aplicados sobre a ALTA em tudo abaixo de 1024 — tablet
+   incluído, não só celular. E em 620 o modo certo voltava por acidente
+   aritmético, o que é pior que estar errado.
+
+   O QUE O VISITANTE VIA, medido a 390 px:
+
+     rolagem              folha 1 na tela      opacidade
+     topo da peça  +0      y   41 (visível)       0
+                 +200      y −192 (já saiu)       0,83
+                 +400      y −399 (sumiu)         1
+
+   A folha 1 nunca era vista: ela acendia enquanto subia para fora da tela.
+
+   O CONSERTO NÃO É REAFINAR OS NÚMEROS. Numa coluna empilhada, "quatro folhas
+   entrando em sequência" não descreve nada — o visitante encontra uma de cada
+   vez, e a sequência é o próprio rolar. Então abaixo de 1024 cada folha se
+   revela quando ELA chega, pelo `.reveal` que o resto do site inteiro usa, com
+   o escalonamento vindo do mesmo `--i` que já estava no HTML.
+
+   REGRA QUE FICA: animação atada a `--p` tem de declarar em que LEITURA ela
+   foi afinada. O motor troca de modo pela altura do elemento, e a altura muda
+   com a largura da janela — então uma peça pode mudar de mecanismo sem que uma
+   linha de CSS dela tenha sido tocada. */
+@media (min-width: 1024px) {
+  /* Especificidade (0,3,0) de propósito: precisa vencer `.reveal.is-visivel`
+     (0,2,0), que senão forçaria opacidade 1 e mataria a entrada por rolagem.
+     Vencer por ORDEM no arquivo funcionaria hoje e quebraria na primeira
+     reorganização — e este projeto já pagou esse preço três vezes. */
+  .prancha[data-progresso] .prancha__item {
+    --janela: .16;
+    --passo: .055;
+    --avanco: clamp(0, calc((var(--p, 1) - .06 - var(--i, 0) * var(--passo)) /
+                            var(--janela)), 1);
+    opacity: var(--avanco);
+    /* `translate3d` e não `translate`: a folha ganha camada própria e o
+       navegador deixa de repintar a fileira inteira a cada quadro. */
+    transform: translate3d(0, calc((1 - var(--avanco)) * 40px), 0);
+    /* O `.reveal` traz desfoque e transição próprios. Aqui quem manda é a
+       rolagem, e uma transição de .85s sobre um valor que muda a cada quadro
+       é engasgo garantido — a mesma lição que a rolagem suave já registrou. */
+    filter: none;
+    transition: none;
+  }
+}
+
+@media (max-width: 1023px) {
+  /* `--avanco: 1` explícito, e não deixado indefinido: sem ele as regras que
+     consomem a variável (marca de registro, legenda, assentamento da foto)
+     cairiam em `var()` inválido. O resultado até seria parecido, mas por
+     acidente de fallback — e acidente não se documenta, se conserta. */
+  .prancha .prancha__item { --avanco: 1; }
+  /* A linha de referência seguia `--p` para se desenhar ANTES das folhas. Com
+     as folhas fora do `--p`, ela ficaria sendo o único gesto preso a um motor
+     que não governa mais nada. */
+  .prancha { --datum: 1; }
 }
 /* A LINHA DE REFERÊNCIA VEM PRIMEIRO, e fecha em .06 — exatamente onde a
    primeira folha começa. É a ordem de um desenho: linha de construção, depois

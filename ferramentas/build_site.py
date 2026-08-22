@@ -1690,6 +1690,11 @@ def main():
     build_ativos.main()
     print('')
 
+    # `--demo` marca a saida como endereco de DEMONSTRACAO: o `_headers` ganha
+    # `X-Robots-Tag: noindex`. Publicar em *.pages.dev sem isso poe uma copia
+    # do site competindo com o dominio oficial no buscador.
+    DEMO = '--demo' in sys.argv
+
     # SEO: sitemap e robots saem do MESMO lugar que as paginas, e nao a mao.
     import datetime
     hoje = datetime.date.today().isoformat()
@@ -1698,7 +1703,7 @@ def main():
     # Cloudflare Pages ou Netlify. Os inertes nao atrapalham -- e publicar os
     # dois conjuntos e o que faz a troca de hospedagem nao exigir uma entrega.
     for nome, conteudo in (('sitemap.xml', sitemap(hoje)), ('robots.txt', robots()),
-                           ('_headers', cabecalhos_deploy()),
+                           ('_headers', cabecalhos_deploy(demo=DEMO)),
                            ('_redirects', redirecionamentos_deploy()),
                            ('.htaccess', htaccess_deploy())):
         caminho = os.path.join(DEST, nome)

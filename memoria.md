@@ -6,6 +6,261 @@ Regra do arquivo: aqui entra o que **não é dedutível do código** — decisõ
 
 ---
 
+## 2026-08-21 (prancha) — O motor troca de leitura sozinho quando a peça muda de altura
+
+Reportado no celular: *"as primeiras imagens da home demoram muito a aparecer e
+não chegam no momento certo — só carrega quando está visualizando a segunda."*
+
+O `memoria.md` já registrava queixa quase idêntica em 20/08, e o conserto de lá
+resolveu **para desktop**. Este é o mesmo sintoma por causa diferente.
+
+### Não era rede, e provar isso mudou o rumo
+
+Primeiro reflexo seria mexer em carregamento. Medido antes:
+
+```
+imagens baixadas antes de qualquer rolagem:
+  folha 1  baixada: true    folha 3  baixada: true
+  folha 2  baixada: true    folha 4  baixada: true
+```
+
+**As quatro já estavam no navegador.** O `fetchpriority="high"` de 20/08 faz o
+trabalho dele. O que chegava tarde era a **opacidade**.
+
+### O motor tem DUAS leituras, e a peça mudava de leitura sem mudar de código
+
+`main.js §7` escolhe pela altura do próprio elemento: peça mais BAIXA que a
+janela usa a travessia inteira; peça mais ALTA usa `altura − janela`, que só
+começa a contar quando o topo dela encosta no topo da tela.
+
+A prancha é uma fileira de quatro. Empilhada, ela cresce — e **cruza a altura
+da janela sem que uma linha de CSS dela tenha sido tocada**:
+
+| largura | colunas | altura da peça | janela | leitura |
+|---|---|---|---|---|
+| 1440 | 4 | 447 px | 900 | baixa ← os tempos são daqui |
+| 1024 | 4 | 377 px | 900 | baixa |
+| **900** | 2 | **1.063 px** | 900 | **ALTA** |
+| **760** | 2 | 947 px | 849 | **ALTA** |
+| 620 | 2 | 825 px | 850 | baixa **por 25 px de margem** |
+| **560** | 1 | **2.555 px** | 851 | **ALTA** |
+| **390** | 1 | 1.893 px | 853 | **ALTA** |
+
+Ou seja: os tempos `.06 / .055 / .16`, afinados para a leitura BAIXA, passaram
+a ser aplicados sobre a ALTA **em tudo abaixo de 1024 — tablet incluído, não só
+celular**. E em 620 o modo certo voltava por acidente aritmético, o que é pior
+que estar errado: funciona até a altura da janela mudar um pouco.
+
+### O que o visitante via, medido a 390 px
+
+| rolagem | folha 1 na tela | opacidade |
+|---|---|---|
+| topo da peça +0 | y **41** (visível) | **0** |
+| +200 | y **−192** (já saiu) | 0,83 |
+| +400 | y −399 (sumiu) | 1 |
+
+**A folha 1 nunca era vista.** Ela acendia enquanto subia para fora da tela — e
+a primeira que o visitante encontrava acesa era a segunda, exatamente como
+relatado.
+
+### O conserto não é reafinar os números
+
+Numa coluna empilhada, "quatro folhas entrando em sequência" **não descreve
+nada**: o visitante encontra uma de cada vez, e a sequência é o próprio rolar.
+Reafinar as constantes manteria um gesto que perdeu o referente.
+
+Então a entrada por rolagem passou a valer **só onde a fileira é uma fileira**
+(`min-width: 1024px`, as quatro em linha). Abaixo disso cada folha se revela
+quando ELA chega, pelo `.reveal` que o resto do site inteiro já usa — e o
+escalonamento vem do mesmo `--i` que já estava no HTML, sem uma variável nova.
+
+**A especificidade é (0,3,0) de propósito.** `.prancha[data-progresso]
+.prancha__item` precisa vencer `.reveal.is-visivel` (0,2,0), que senão forçaria
+opacidade 1 e mataria a entrada por rolagem no desktop. Vencer por ORDEM no
+arquivo funcionaria hoje e quebraria na primeira reorganização — este arquivo
+já registra esse preço três vezes.
+
+E o bloco de desktop desliga `filter` e `transition` do `.reveal`: **transição
+de .85 s sobre um valor que a rolagem reescreve a cada quadro é engasgo
+garantido**, a mesma lição que a rolagem suave pagou em 20/08.
+
+Abaixo de 1024, `--avanco: 1` é **explícito** e não deixado indefinido: sem ele
+as regras que consomem a variável (marca de registro, legenda, assentamento da
+foto) cairiam em `var()` inválido. O resultado até seria parecido, mas por
+acidente de fallback.
+
+### Provado nos dois lados
+
+| | folha 1 acende em | sequência |
+|---|---|---|
+| desktop 1440 | `[0,0,0,0] → [0.67,0.32,0,0] → [1,1,1,0.68] → [1,1,1,1]` | **intacta** |
+| desktop 1024 | idem | **intacta** |
+| celular 390 | y **634** (bem visível) | uma por vez |
+| celular 375×667 | y **335** | uma por vez |
+
+No desktop as quatro fecham com a fileira inteira ainda na tela, como antes.
+
+**Movimento reduzido conferido nos dois** — é a armadilha que este arquivo
+registra três vezes: todo estado inicial que esconde conteúdo precisa desse
+caminho verificado. `main.js §4` marca tudo `is-visivel` de imediato quando há
+redução, então opacidade 1 e `--avanco: 1` em celular e desktop.
+
+### REGRA QUE FICA
+
+**Animação atada a `--p` tem de declarar em que LEITURA ela foi afinada.** O
+motor troca de modo pela altura do elemento, e a altura muda com a largura da
+janela — então uma peça pode trocar de mecanismo sem que nada nela seja
+alterado. É irmã da armadilha de 20/08 (*"ao mudar o PAPEL de um elemento numa
+quebra, varrer as quebras ACIMA dela"*), com uma diferença que a torna pior:
+aqui não há regra sobrando para encontrar na varredura. Não há regra nenhuma —
+há a mesma regra medindo outra coisa.
+
+### Estado
+
+Publicado. 306 referências, 0 quebradas, 0 órfãos. 0 conflitos de cascata,
+`node --check` limpo. Home a 1472 ms de LCP, TBT 55 ms, CLS 0,000 no perfil
+móvel local. No ar: 40 ok / 1 falha (o `.htaccess` em cache de borda, que
+expira sozinho).
+---
+
+## 2026-08-21 (Cloudflare) — A mesma regra de rota que está certa em Apache é LAÇO no Pages
+
+Pedido: publicar o site no Cloudflare, de graça. Está no ar em
+**https://i3automations.pages.dev**, conta `kegit9080@gmail.com`, projeto
+`i3automations`. Publicado por `wrangler pages deploy`, sem custo e sem
+repositório git no meio.
+
+### O laço: 50 saltos, e o site inteiro inacessível
+
+Primeira publicação foi ao ar quebrada. Todo link interno aponta para `.html`,
+e pedir qualquer página entrava num laço infinito:
+
+```
+/who-we-are.html  --308-->  /who-we-are      (o Pages canonicaliza sozinho)
+/who-we-are       --301-->  /who-we-are.html (a nossa regra do _redirects)
+```
+
+Medido: **`curl` desistiu em 50 saltos.**
+
+**O Cloudflare Pages remove a extensão `.html` e devolve 308 para a forma
+curta. Não há como desligar isso pelo `_redirects`.** E a regra que colidia com
+ele é a variante "sem barra" (`/who-we-are` → `/who-we-are.html`), que em
+Apache é **necessária** — o site antigo devolvia 301 nesse caminho, e sem a
+regra ele ficaria sem destino.
+
+Ou seja: a mesma linha é obrigatória numa hospedagem e fatal na outra.
+
+O conserto tem duas partes, e as duas são sobre falar a língua da plataforma:
+o alvo do `_redirects` passou a ser **sem extensão** (a forma canônica do
+Pages), e a variante sem barra **deixou de ser emitida** para lá — o Pages já
+serve `/who-we-are` nativamente.
+
+**REGRA QUE FICA: redirecionamento correto numa plataforma pode ser LAÇO em
+outra. Regra de rota não se copia entre hospedagens sem testar no ar.** É a
+justificativa retroativa para `.htaccess` e `_redirects` serem gerados por
+funções separadas em vez de saírem do mesmo texto — decisão tomada hoje cedo
+por organização, e que hoje à noite pagou por si.
+
+### O `_redirects` do Pages não aceita 410
+
+Ele aceita 200, 301, 302, 303, 307, 308 e 404. **Uma linha com 410 não vira
+"410": ela é descartada na publicação, em silêncio**, e o caminho passa a não
+ter regra nenhuma.
+
+410 continua sendo o código certo para os restos do WordPress ("acabou", não
+"mudou de lugar") e é o que o `.htaccess` emite, porque em Apache dá. Onde a
+plataforma não deixa, 404 é o mais próximo que existe — também tira do índice,
+só um pouco mais devagar. Os dois arquivos agora dizem isso em comentário, para
+ninguém "corrigir" o 404 de volta para 410.
+
+### O Pages SERVE o `.htaccess`
+
+`_headers` e `_redirects` ele CONSOME — os dois respondem 404. O arquivo do
+Apache ele só serve: medido, **`/.htaccess` respondia 200** e entregava a
+configuração inteira.
+
+Tentei esconder pelo próprio `_redirects` (`/.htaccess → /404.html 404`) e
+**não funciona: arquivo que existe vence a regra**. A saída foi tirar o arquivo
+do PACOTE, não do disco — `ferramentas/publicar_cloudflare.sh` copia `site/`
+para um diretório temporário, remove o `.htaccess` e publica a cópia.
+
+É o jeito certo pelo motivo geral: **o artefato se prepara para a plataforma de
+destino**, em vez de a pasta tentar servir as duas ao mesmo tempo.
+
+**E a borda guardou a versão velha.** `CF-Cache-Status: HIT`, `Age: 363`,
+`s-maxage=604800` — a origem devolve 404 (conferido com cache-buster) e a
+borda continuará servindo o arquivo por até 7 dias nos nós que o pegaram. Sem
+credencial nenhuma dentro, então é sujeira, não risco. Não há como purgar:
+`*.pages.dev` não é uma zona da conta.
+
+### O modo `--demo`, e por que ele não pode ser o padrão
+
+`python ferramentas/build_site.py --demo` acrescenta
+`X-Robots-Tag: noindex, nofollow` ao `_headers`. **Não é opcional num endereço
+de demonstração**: enquanto i3automations.com serve o site velho, uma cópia
+indexável em `*.pages.dev` compete com ele — duas URLs, mesmo conteúdo, e quem
+escolhe qual sobrevive é o buscador.
+
+Mas ele é PARÂMETRO e não padrão, pelo que este arquivo registra desde 18/08:
+se `noindex` fosse o padrão, viajaria junto para o domínio real no dia da troca
+e o site oficial sairia do Google — com o sintoma aparecendo semanas depois da
+causa. **O padrão falha para o lado seguro; quem publica numa demo pede o modo
+demo.**
+
+E o `robots.txt` continua `Allow: /`, o que parece contraditório e não é: o
+rastreador precisa BUSCAR a página para ver o `noindex`. Bloqueado no
+robots.txt ele não busca, não vê, e ainda pode indexar a URL crua por links
+externos. **Deixar rastrear e mandar noindex é a combinação que tira do
+índice.**
+
+`publicar_cloudflare.sh` sempre usa `--demo`, então a proteção não pode se
+perder numa republicação distraída.
+
+### O validador virou consciente de plataforma
+
+Na primeira passada ele deu **13 falhas**, e **12 eram ele falando Apache com
+uma plataforma que não é Apache**: esperava 200 em `/x.html` (o Pages devolve
+308), 410 nos restos do WordPress (o Pages devolve 404) e registro MX num
+subdomínio `*.pages.dev`, que não tem e-mail e não deveria ter.
+
+Falha falsa é pior que falha nenhuma: um relatório com ruído é um relatório que
+ninguém lê até o fim — e a 13ª falha, a única real, estava no meio delas.
+`validar_producao.sh` detecta a plataforma pela URL e ajusta o que espera.
+
+Agora: **40 ok, 1 falha** — a falha é o `.htaccess` em cache de borda.
+
+### Medido no ar, servido pelo Cloudflare
+
+| | pior LCP | pior TBT | CLS |
+|---|---|---|---|
+| local (servidor de teste) | 1836 ms | 152 ms | 0,000 |
+| **no ar (Cloudflare)** | **1904 ms** | **310 ms** | **0,000** |
+
+Desktop: pior LCP 468 ms, TBT 0 ms.
+
+**O TBT da home subiu de 84 ms (local) para 271–310 ms no ar**, e não é ruído —
+três amostras seguidas deram 271, 298 e 310. A causa provável é de MÉTODO:
+medir uma origem remota **e** aplicar Slow 4G empilha a latência real até o
+Cloudflare sobre os 150 ms emulados, então a condição testada é mais dura que o
+4G lento que ela deveria modelar.
+
+Fica registrado como **não resolvido**: o número verdadeiro para um visitante
+real está entre 84 e 310, e daqui não dá para fechar. LCP e CLS passam com
+folga nos dois métodos.
+
+### Estado
+
+25/25 rotas ainda passando no Apache de container (o gerador foi mexido, então
+foi reconferido). 306 referências, 0 quebradas, 0 órfãos. 0 conflitos.
+
+### PENDENTE
+
+1. **O `_headers` no disco está em modo demo.** Antes de publicar na HostGator,
+   rodar `build_site.py` **sem** `--demo`, ou o site oficial sai do Google.
+2. **TBT da home no ar**, acima do limiar por método de medição não resolvido.
+3. O `.htaccess` em cache de borda expira sozinho em até 7 dias.
+---
+
 ## 2026-08-21 (contratos) — Quatro causas somadas, e três são armadilhas de tabela
 
 Reportado: *"Contract record em past performances está um pouco quebrado.

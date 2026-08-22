@@ -1,28 +1,24 @@
 # Cloudflare Pages / Netlify. Em Apache quem vale e o .htaccess.
 # origem  destino  codigo
 
-/who-we-are/             /who-we-are.html           301
-/who-we-are              /who-we-are.html           301
-/capabilities/           /capabilities.html         301
-/capabilities            /capabilities.html         301
-/past-performance/       /past-performance.html     301
-/past-performance        /past-performance.html     301
-/services/               /services.html             301
-/services                /services.html             301
-/gallery/                /gallery.html              301
-/gallery                 /gallery.html              301
-/contact-us/             /contact.html              301
-/contact-us              /contact.html              301
-/privacy-policy/         /privacy-policy.html       301
-/privacy-policy          /privacy-policy.html       301
-/terms-and-conditions/   /terms-and-conditions.html 301
-/terms-and-conditions    /terms-and-conditions.html 301
+/who-we-are/             /who-we-are                301
+/capabilities/           /capabilities              301
+/past-performance/       /past-performance          301
+/services/               /services                  301
+/gallery/                /gallery                   301
+/contact-us/             /contact                   301
+/privacy-policy/         /privacy-policy            301
+/terms-and-conditions/   /terms-and-conditions      301
 /home/                   /                          301
-/home                    /                          301
 
-/feed/*                  /404.html                  410
-/comments/feed/*         /404.html                  410
-/wp-json/*               /404.html                  410
-/xmlrpc.php*             /404.html                  410
-/wp-login.php*           /404.html                  410
-/wp-admin/*              /404.html                  410
+# Cada plataforma esconde o arquivo de configuracao da outra.
+/.htaccess               /404.html                  404
+
+# 410 seria o certo, mas o Cloudflare Pages so aceita ate 404.
+# O .htaccess, em Apache, emite 410 nestes mesmos caminhos.
+/feed/*                  /404.html                  404
+/comments/feed/*         /404.html                  404
+/wp-json/*               /404.html                  404
+/xmlrpc.php*             /404.html                  404
+/wp-login.php*           /404.html                  404
+/wp-admin/*              /404.html                  404

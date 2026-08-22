@@ -335,7 +335,7 @@ def prancha(itens, cota):
         # `ansioso=True`: ver a nota longa em `imagem()`. Sao as primeiras
         # fotografias da home e o defeito reportado era elas chegarem tarde.
         saida.append(
-            '<figure class="prancha__item" style="--i:%d">'
+            '<figure class="prancha__item reveal" style="--i:%d">'
             '<div class="prancha__vista">'
             '<span class="prancha__tique" aria-hidden="true"></span>'
             '<span class="prancha__idx">%02d</span>'
@@ -853,9 +853,36 @@ IDOS = ['/feed/', '/comments/feed/', '/wp-json/', '/xmlrpc.php',
         '/wp-login.php', '/wp-admin/']
 
 
-def cabecalhos_deploy():
-    """`_headers` -- Cloudflare Pages e Netlify. INERTE em Apache."""
+def cabecalhos_deploy(demo=False):
+    """`_headers` -- Cloudflare Pages e Netlify. INERTE em Apache.
+
+    `demo=True` acrescenta `X-Robots-Tag: noindex, nofollow`. NAO e opcional
+    num endereco de demonstracao, e a razao esta registrada desde 18/08:
+    enquanto o dominio oficial ainda serve o site velho, uma copia indexavel
+    em `*.pages.dev` COMPETE com ele no buscador -- duas URLs com o mesmo
+    conteudo, e quem decide qual sobrevive e o Google, nao voce.
+
+    POR QUE ISTO E UM PARAMETRO E NAO O PADRAO. Se `noindex` fosse o padrao,
+    ele viajaria junto para o dominio real no dia da troca e o site oficial
+    sairia do Google -- com o sintoma aparecendo semanas depois da causa,
+    quando as posicoes ja cairam. O padrao falha para o lado seguro; quem
+    publica numa demo pede o modo demo explicitamente.
+
+    E POR QUE NAO `Disallow: /` NO ROBOTS.TXT, que seria o reflexo obvio: o
+    rastreador precisa BUSCAR a pagina para ver o cabecalho `noindex`. Bloqueado
+    no robots.txt ele nao busca, nao ve o noindex, e ainda pode indexar a URL
+    crua por causa de links externos. Deixar rastrear e mandar noindex e a
+    combinacao que realmente tira do indice.
+    """
     L = ['# Cloudflare Pages / Netlify. Em Apache quem vale e o .htaccess.', '']
+    if demo:
+        L = ['# ' + '=' * 66,
+             '# MODO DEMONSTRACAO -- este arquivo carrega noindex.',
+             '# APAGUE o bloco X-Robots-Tag abaixo (ou republique sem --demo)',
+             '# no dia em que este conteudo for para o dominio real, ou o site',
+             '# oficial sai do Google.',
+             '# ' + '=' * 66,
+             ''] + L
     for _rot, padrao, _ext, seg, imut in CACHE:
         L += [padrao, '  Cache-Control: public, max-age=%d%s'
               % (seg, ', immutable' if imut else ''), '']
@@ -868,6 +895,8 @@ def cabecalhos_deploy():
     L.append('/*')
     for k, v in SEGURANCA:
         L.append('  %s: %s' % (k, v))
+    if demo:
+        L.append('  X-Robots-Tag: noindex, nofollow')
     # NAO HA `X-Robots-Tag: noindex` AQUI, e a ausencia e deliberada. Endereco
     # de DEMONSTRACAO precisa dele para nao competir com o dominio oficial --
     # mas esse arquivo tem de ser APAGADO quando o dominio real entrar, ou o
@@ -881,15 +910,57 @@ def redirecionamentos_deploy():
     L = ['# Cloudflare Pages / Netlify. Em Apache quem vale e o .htaccess.',
          '# origem  destino  codigo', '']
     larg = max(len(a) for a, _ in ROTAS) + 2
+
+    # O ALVO AQUI E SEM `.html`, E ISSO CONSERTA UM LACO INFINITO.
+    #
+    # O Cloudflare Pages canonicaliza sozinho: pedir `/who-we-are.html` devolve
+    # **308 para `/who-we-are`**, sem extensao. Nao ha como desligar isso pelo
+    # `_redirects`.
+    #
+    # A primeira versao deste arquivo apontava para `/who-we-are.html` e ainda
+    # emitia a variante sem barra (`/who-we-are` -> `/who-we-are.html`), que e
+    # a regra CERTA em Apache. No Pages as duas coisas se perseguem:
+    #
+    #   /who-we-are.html  --308-->  /who-we-are     (o Pages canonicaliza)
+    #   /who-we-are       --301-->  /who-we-are.html  (a nossa regra)
+    #
+    # Medido no ar: **50 saltos e o curl desiste**. O site inteiro ficou
+    # inacessivel, porque todo link interno aponta para `.html`.
+    #
+    # Entao: alvo sem extensao, e NENHUMA regra para a forma sem barra -- o
+    # Pages ja serve `/who-we-are` nativamente, e qualquer regra ali recria o
+    # laco. Em Apache continua valendo o oposto, e por isso o `.htaccess` e
+    # gerado a parte em vez de os dois saírem do mesmo texto.
+    #
+    # REGRA QUE FICA: redirecionamento correto numa plataforma pode ser LACO em
+    # outra. Regra de rota nao se copia entre hospedagens sem testar no ar.
     for velho, novo in ROTAS:
-        L.append('%-*s %-26s 301' % (larg, velho, novo))
-        # Sem a variante sem barra, `/who-we-are` -- que o proprio site antigo
-        # devolvia por 301 -- fica sem destino.
-        if velho != '/' and velho.endswith('/'):
-            L.append('%-*s %-26s 301' % (larg, velho.rstrip('/'), novo))
-    L.append('')
+        alvo = novo[:-5] if novo.endswith('.html') else novo
+        L.append('%-*s %-26s 301' % (larg, velho, alvo))
+    # 404 AQUI, 410 NO APACHE, e a diferenca e da PLATAFORMA, nao da intencao.
+    #
+    # O `_redirects` do Cloudflare Pages aceita 200, 301, 302, 303, 307, 308 e
+    # 404 -- e mais nada. Uma linha com 410 nao vira "410": ela e descartada na
+    # publicacao, em silencio, e o caminho passa a nao ter regra nenhuma.
+    #
+    # 410 continua sendo o codigo CERTO para isto ("acabou", nao "mudou de
+    # lugar") e e o que o .htaccess emite, porque em Apache da para emiti-lo.
+    # Onde a plataforma nao deixa, 404 e o mais proximo que existe: tambem tira
+    # do indice, so um pouco mais devagar.
+    # SIMETRIA COM O .htaccess, e ela nasceu de um vazamento real: publicado no
+    # Cloudflare Pages, `/.htaccess` respondia 200 e entregava a configuracao de
+    # servidor inteira para quem pedisse. `_headers` e `_redirects` nao vazam
+    # porque o Pages os CONSOME; o arquivo do Apache ele so serve.
+    #
+    # O Apache ja faz o inverso -- nega `_headers` e `_redirects` por FilesMatch.
+    # Aqui a ferramenta disponivel e o proprio `_redirects`, entao e por ele.
+    L += ['', '# Cada plataforma esconde o arquivo de configuracao da outra.',
+          '%-*s %-26s 404' % (larg, '/.htaccess', '/404.html'),
+          '',
+          '# 410 seria o certo, mas o Cloudflare Pages so aceita ate 404.',
+          '# O .htaccess, em Apache, emite 410 nestes mesmos caminhos.']
     for ido in IDOS:
-        L.append('%-*s %-26s 410' % (larg, ido + '*', '/404.html'))
+        L.append('%-*s %-26s 404' % (larg, ido + '*', '/404.html'))
     return NL.join(L) + NL
 
 

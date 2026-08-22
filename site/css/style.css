@@ -2033,13 +2033,21 @@ touch-action: pan-y;
 .carta { aspect-ratio: 4 / 3; }
 .clp { aspect-ratio: 4 / 3; }
 }
-.prancha__item {
+@media (min-width: 1024px) {
+.prancha[data-progresso] .prancha__item {
 --janela: .16;
 --passo: .055;
 --avanco: clamp(0, calc((var(--p, 1) - .06 - var(--i, 0) * var(--passo)) /
 var(--janela)), 1);
 opacity: var(--avanco);
 transform: translate3d(0, calc((1 - var(--avanco)) * 40px), 0);
+filter: none;
+transition: none;
+}
+}
+@media (max-width: 1023px) {
+.prancha .prancha__item { --avanco: 1; }
+.prancha { --datum: 1; }
 }
 .prancha { --datum: clamp(0, calc(var(--p, 1) / .06), 1); }
 .prancha__moldura img {
